@@ -38,7 +38,7 @@ test.describe("Products management", () => {
     await page.getByLabel("SKU").fill(sku)
     await page.getByLabel("Price").fill("1500.50")
     await page.getByLabel("Stock", { exact: true }).fill("10")
-    await page.getByLabel("Description").fill("Producto de prueba")
+    await page.getByLabel("Description").fill("Test description")
     await page.getByRole("button", { name: "Save" }).click()
 
     await expect(page.getByText("Product created successfully")).toBeVisible()
@@ -61,7 +61,7 @@ test.describe("Products management", () => {
 
   test("Cancel product creation", async ({ page }) => {
     await page.getByRole("button", { name: "Add Product" }).click()
-    await page.getByLabel("Name").fill("Producto cancelado")
+    await page.getByLabel("Name").fill("Cancelled product")
     await page.getByRole("button", { name: "Cancel" }).click()
 
     await expect(page.getByRole("dialog")).not.toBeVisible()
