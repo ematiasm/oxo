@@ -1,7 +1,9 @@
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from pydantic import EmailStr
+from sqlalchemy import Column, DateTime, Numeric, func
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -102,6 +104,66 @@ class ItemPublic(ItemBase):
 
 class ItemsPublic(SQLModel):
     data: list[ItemPublic]
+    count: int
+
+
+# Shared properties
+class ProductBase(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    sku: str = Field(min_length=1, max_length=64, unique=True, index=True)
+    price: Decimal = Field(
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
+        sa_column=Column(Numeric(12, 2), nullable=False),
+    )
+    stock: int = Field(default=0, ge=0)
+    is_active: bool = True
+
+
+# Properties to receive via API on creation
+class ProductCreate(ProductBase):
+    pass
+
+
+# Properties to receive via API on update, all are optional
+class ProductUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    sku: str | None = Field(default=None, min_length=1, max_length=64)
+    price: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
+    )
+    stock: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+
+
+# Database model, database table inferred from class name
+class Product(ProductBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime | None = Field(default_factory=get_datetime_utc)
+    # server_default so the column can be NOT NULL on a table that already has rows
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_column=Column(
+            DateTime(timezone=True), nullable=False, server_default=func.now()
+        ),
+    )
+
+
+# Properties to return via API, id is always required
+class ProductPublic(ProductBase):
+    id: uuid.UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ProductsPublic(SQLModel):
+    data: list[ProductPublic]
     count: int
 
 
