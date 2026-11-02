@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Pencil } from "lucide-react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
 
 import {
   type ProductPublic,
@@ -33,27 +32,11 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useCustomToast from "@/hooks/useCustomToast"
 import { handleError } from "@/utils"
-
-const positivePrice = z
-  .string()
-  .regex(/^\d+(?:\.\d+)?$/, { message: "Enter a valid price" })
-  .refine((value) => /[1-9]/.test(value), {
-    message: "Price must be greater than zero",
-  })
-
-const formSchema = z.object({
-  name: z.string().min(1, { message: "Name is required" }),
-  sku: z.string().min(1, { message: "SKU is required" }),
-  barcode: z
-    .string()
-    .max(64, { message: "Barcode must be at most 64 characters" })
-    .optional(),
-  price: positivePrice,
-  stock: z.number().int().min(0, { message: "Stock cannot be negative" }),
-  description: z.string().optional(),
-})
-
-type FormData = z.infer<typeof formSchema>
+import {
+  type ProductFormData,
+  productFormSchema,
+  toProductPayload,
+} from "./productForm"
 
 interface EditProductProps {
   product: ProductPublic
@@ -65,8 +48,8 @@ const EditProduct = ({ product, onSuccess }: EditProductProps) => {
   const queryClient = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<ProductFormData>({
+    resolver: zodResolver(productFormSchema),
     mode: "onBlur",
     criteriaMode: "all",
     defaultValues: {
@@ -93,9 +76,8 @@ const EditProduct = ({ product, onSuccess }: EditProductProps) => {
     },
   })
 
-  const onSubmit = (data: FormData) => {
-    const barcode = data.barcode?.trim()
-    mutation.mutate({ ...data, barcode: barcode ? barcode : null })
+  const onSubmit = (data: ProductFormData) => {
+    mutation.mutate(toProductPayload(data))
   }
 
   return (

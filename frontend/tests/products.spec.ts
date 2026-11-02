@@ -236,3 +236,31 @@ test("Barcode can be created and edited", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Edit Product" }).click()
   await expect(page.getByLabel("Barcode")).toHaveValue(updatedBarcode)
 })
+
+test("Barcode is trimmed before the 64 character limit is checked", async ({
+  page,
+}) => {
+  const sku = randomSku()
+  // 64 characters plus a trailing space: valid once trimmed, invalid if the
+  // browser measures the raw value before trimming.
+  const barcode = `${"b".repeat(64)} `
+
+  await page.goto("/products")
+  await page.getByRole("button", { name: "Add Product" }).click()
+  await page.getByLabel("Name").fill(randomProductName())
+  await page.getByLabel("SKU").fill(sku)
+  await page.getByLabel("Price").fill("10.00")
+  await page.getByLabel("Barcode").fill(barcode)
+  await page.getByRole("button", { name: "Save" }).click()
+
+  await expect(
+    page.getByText("Barcode must be at most 64 characters"),
+  ).toHaveCount(0)
+  await expect(page.getByText("Product created successfully")).toBeVisible()
+  await expect(page.getByRole("dialog")).not.toBeVisible()
+
+  const productRow = page.getByRole("row").filter({ hasText: sku })
+  await productRow.getByRole("button").last().click()
+  await page.getByRole("menuitem", { name: "Edit Product" }).click()
+  await expect(page.getByLabel("Barcode")).toHaveValue("b".repeat(64))
+})
