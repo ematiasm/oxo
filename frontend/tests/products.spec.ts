@@ -179,3 +179,60 @@ test.describe("Non-superuser cannot write", () => {
     )
   })
 })
+
+test.describe("Product table columns", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/products")
+  })
+
+  test("Hides the ID column and shows the requested columns", async ({
+    page,
+  }) => {
+    await expect(page.getByRole("heading", { name: "Products" })).toBeVisible()
+    await expect(page.getByRole("columnheader").first()).toBeVisible()
+
+    const headers = await page
+      .locator("thead th")
+      .evaluateAll((cells) =>
+        cells.map((cell) => cell.textContent?.trim() ?? ""),
+      )
+
+    expect(headers).toEqual([
+      "Name",
+      "SKU",
+      "Price",
+      "Stock",
+      "Last Update",
+      "Status",
+      "Actions",
+    ])
+  })
+})
+
+test("Barcode can be created and edited", async ({ page }) => {
+  const sku = randomSku()
+  const barcode = `779${Date.now().toString().slice(-10)}`
+  const updatedBarcode = `778${Date.now().toString().slice(-10)}`
+
+  await page.goto("/products")
+  await page.getByRole("button", { name: "Add Product" }).click()
+  await page.getByLabel("Name").fill(randomProductName())
+  await page.getByLabel("SKU").fill(sku)
+  await page.getByLabel("Price").fill("10.00")
+  await page.getByLabel("Barcode").fill(barcode)
+  await page.getByRole("button", { name: "Save" }).click()
+  await expect(page.getByText("Product created successfully")).toBeVisible()
+  await expect(page.getByRole("dialog")).not.toBeVisible()
+
+  const productRow = page.getByRole("row").filter({ hasText: sku })
+  await productRow.getByRole("button").last().click()
+  await page.getByRole("menuitem", { name: "Edit Product" }).click()
+  await expect(page.getByLabel("Barcode")).toHaveValue(barcode)
+  await page.getByLabel("Barcode").fill(updatedBarcode)
+  await page.getByRole("button", { name: "Save" }).click()
+  await expect(page.getByText("Product updated successfully")).toBeVisible()
+
+  await productRow.getByRole("button").last().click()
+  await page.getByRole("menuitem", { name: "Edit Product" }).click()
+  await expect(page.getByLabel("Barcode")).toHaveValue(updatedBarcode)
+})

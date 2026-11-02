@@ -40,6 +40,10 @@ const positivePrice = z
 const formSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
   sku: z.string().min(1, { message: "SKU is required" }),
+  barcode: z
+    .string()
+    .max(64, { message: "Barcode must be at most 64 characters" })
+    .optional(),
   price: positivePrice,
   stock: z.number().int().min(0, { message: "Stock cannot be negative" }),
   description: z.string().optional(),
@@ -59,6 +63,7 @@ const AddProduct = () => {
     defaultValues: {
       name: "",
       sku: "",
+      barcode: "",
       price: "",
       stock: 0,
       description: "",
@@ -80,7 +85,8 @@ const AddProduct = () => {
   })
 
   const onSubmit = (data: FormData) => {
-    mutation.mutate(data)
+    const barcode = data.barcode?.trim()
+    mutation.mutate({ ...data, barcode: barcode ? barcode : null })
   }
 
   return (
@@ -137,6 +143,20 @@ const AddProduct = () => {
                         {...field}
                         required
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="barcode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Barcode</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Barcode" type="text" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
