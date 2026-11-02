@@ -1,0 +1,181 @@
+import { expect, test } from "@playwright/test"
+import { createUser } from "./utils/privateApi"
+import { randomEmail, randomPassword } from "./utils/random"
+import { logInUser } from "./utils/user"
+
+const randomSku = () =>
+  `SKU-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+
+const randomProductName = () =>
+  `Product ${Math.random().toString(36).substring(7)}`
+
+test("Products page is accessible and shows correct title", async ({
+  page,
+}) => {
+  await page.goto("/products")
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible()
+  await expect(page.getByText("Manage the store catalog")).toBeVisible()
+})
+
+test("Add Product button is visible for superuser", async ({ page }) => {
+  await page.goto("/products")
+  await expect(page.getByRole("button", { name: "Add Product" })).toBeVisible()
+})
+
+// Writes require a superuser, so these run with the default storageState,
+// which is the superuser session created by auth.setup.ts.
+test.describe("Products management", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/products")
+  })
+
+  test("Create a new product successfully", async ({ page }) => {
+    const name = randomProductName()
+    const sku = randomSku()
+
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Name").fill(name)
+    await page.getByLabel("SKU").fill(sku)
+    await page.getByLabel("Price").fill("1500.50")
+    await page.getByLabel("Stock", { exact: true }).fill("10")
+    await page.getByLabel("Description").fill("Producto de prueba")
+    await page.getByRole("button", { name: "Save" }).click()
+
+    await expect(page.getByText("Product created successfully")).toBeVisible()
+    await expect(page.getByText(sku)).toBeVisible()
+  })
+
+  test("Create product with only required fields", async ({ page }) => {
+    const name = randomProductName()
+    const sku = randomSku()
+
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Name").fill(name)
+    await page.getByLabel("SKU").fill(sku)
+    await page.getByLabel("Price").fill("99.99")
+    await page.getByRole("button", { name: "Save" }).click()
+
+    await expect(page.getByText("Product created successfully")).toBeVisible()
+    await expect(page.getByText(sku)).toBeVisible()
+  })
+
+  test("Cancel product creation", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Name").fill("Producto cancelado")
+    await page.getByRole("button", { name: "Cancel" }).click()
+
+    await expect(page.getByRole("dialog")).not.toBeVisible()
+  })
+
+  test("Name is required", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Name").fill("")
+    await page.getByLabel("Name").blur()
+
+    await expect(page.getByText("Name is required")).toBeVisible()
+  })
+
+  test("SKU is required", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("SKU").fill("")
+    await page.getByLabel("SKU").blur()
+
+    await expect(page.getByText("SKU is required")).toBeVisible()
+  })
+
+  test("Price must be greater than zero", async ({ page }) => {
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Price").fill("0")
+    await page.getByLabel("Price").blur()
+
+    await expect(
+      page.getByText("Price must be greater than zero"),
+    ).toBeVisible()
+  })
+
+  test("Duplicate SKU is rejected by the server", async ({ page }) => {
+    const sku = randomSku()
+
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Name").fill(randomProductName())
+    await page.getByLabel("SKU").fill(sku)
+    await page.getByLabel("Price").fill("10.00")
+    await page.getByRole("button", { name: "Save" }).click()
+    await expect(page.getByText("Product created successfully")).toBeVisible()
+    await expect(page.getByRole("dialog")).not.toBeVisible()
+
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Name").fill(randomProductName())
+    await page.getByLabel("SKU").fill(sku)
+    await page.getByLabel("Price").fill("20.00")
+    await page.getByRole("button", { name: "Save" }).click()
+
+    await expect(
+      page.getByText("The product with this SKU already exists in the system."),
+    ).toBeVisible()
+  })
+
+  test.describe("Edit and Delete", () => {
+    let sku: string
+
+    test.beforeEach(async ({ page }) => {
+      sku = randomSku()
+
+      await page.goto("/products")
+      await page.getByRole("button", { name: "Add Product" }).click()
+      await page.getByLabel("Name").fill(randomProductName())
+      await page.getByLabel("SKU").fill(sku)
+      await page.getByLabel("Price").fill("500.00")
+      await page.getByRole("button", { name: "Save" }).click()
+      await expect(page.getByText("Product created successfully")).toBeVisible()
+      await expect(page.getByRole("dialog")).not.toBeVisible()
+    })
+
+    test("Edit a product successfully", async ({ page }) => {
+      const updatedName = randomProductName()
+
+      const productRow = page.getByRole("row").filter({ hasText: sku })
+      await productRow.getByRole("button").last().click()
+      await page.getByRole("menuitem", { name: "Edit Product" }).click()
+
+      await page.getByLabel("Name").fill(updatedName)
+      await page.getByRole("button", { name: "Save" }).click()
+
+      await expect(page.getByText("Product updated successfully")).toBeVisible()
+      await expect(page.getByText(updatedName)).toBeVisible()
+    })
+
+    test("Delete a product successfully", async ({ page }) => {
+      const productRow = page.getByRole("row").filter({ hasText: sku })
+      await productRow.getByRole("button").last().click()
+      await page.getByRole("menuitem", { name: "Delete Product" }).click()
+
+      await page.getByRole("button", { name: "Delete" }).click()
+
+      await expect(
+        page.getByText("The product was deleted successfully"),
+      ).toBeVisible()
+      await expect(page.getByText(sku)).not.toBeVisible()
+    })
+  })
+})
+
+// Products are global (not per-user), so a normal user still sees the whole
+// catalog but must not see any write affordance. The API would answer 403.
+test.describe("Non-superuser cannot write", () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
+  test("Hides write actions from a normal user", async ({ page }) => {
+    const email = randomEmail()
+    const password = randomPassword()
+    await createUser({ email, password })
+    await logInUser(page, email, password)
+
+    await page.goto("/products")
+
+    await expect(page.getByRole("heading", { name: "Products" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Add Product" })).toHaveCount(
+      0,
+    )
+  })
+})
