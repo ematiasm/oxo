@@ -159,6 +159,122 @@ export type PrivateUserCreate = {
 };
 
 /**
+ * ProductCreate
+ */
+export type ProductCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Sku
+     */
+    sku: string;
+    /**
+     * Price
+     */
+    price: number | string;
+    /**
+     * Stock
+     */
+    stock?: number;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+};
+
+/**
+ * ProductPublic
+ */
+export type ProductPublic = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Sku
+     */
+    sku: string;
+    /**
+     * Price
+     */
+    price: string;
+    /**
+     * Stock
+     */
+    stock?: number;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * ProductUpdate
+ */
+export type ProductUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Sku
+     */
+    sku?: string | null;
+    /**
+     * Price
+     */
+    price?: number | string | null;
+    /**
+     * Stock
+     */
+    stock?: number | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+};
+
+/**
+ * ProductsPublic
+ */
+export type ProductsPublic = {
+    /**
+     * Data
+     */
+    data: Array<ProductPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * Token
  */
 export type Token = {
@@ -920,6 +1036,155 @@ export type itemsUpdateItemResponses = {
 };
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+
+export type productsReadProductsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/products/';
+};
+
+export type productsReadProductsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type productsReadProductsError = productsReadProductsErrors[keyof productsReadProductsErrors];
+
+export type productsReadProductsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProductsPublic;
+};
+
+export type productsReadProductsResponse = productsReadProductsResponses[keyof productsReadProductsResponses];
+
+export type productsCreateProductData = {
+    body: ProductCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/products/';
+};
+
+export type productsCreateProductErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type productsCreateProductError = productsCreateProductErrors[keyof productsCreateProductErrors];
+
+export type productsCreateProductResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProductPublic;
+};
+
+export type productsCreateProductResponse = productsCreateProductResponses[keyof productsCreateProductResponses];
+
+export type productsDeleteProductData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/products/{id}';
+};
+
+export type productsDeleteProductErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type productsDeleteProductError = productsDeleteProductErrors[keyof productsDeleteProductErrors];
+
+export type productsDeleteProductResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type productsDeleteProductResponse = productsDeleteProductResponses[keyof productsDeleteProductResponses];
+
+export type productsReadProductData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/products/{id}';
+};
+
+export type productsReadProductErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type productsReadProductError = productsReadProductErrors[keyof productsReadProductErrors];
+
+export type productsReadProductResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProductPublic;
+};
+
+export type productsReadProductResponse = productsReadProductResponses[keyof productsReadProductResponses];
+
+export type productsUpdateProductData = {
+    body: ProductUpdate;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/products/{id}';
+};
+
+export type productsUpdateProductErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type productsUpdateProductError = productsUpdateProductErrors[keyof productsUpdateProductErrors];
+
+export type productsUpdateProductResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProductPublic;
+};
+
+export type productsUpdateProductResponse = productsUpdateProductResponses[keyof productsUpdateProductResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;
