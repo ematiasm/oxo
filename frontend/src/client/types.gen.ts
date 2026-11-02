@@ -183,6 +183,10 @@ export type ProductCreate = {
      */
     stock?: number;
     /**
+     * Barcode
+     */
+    barcode?: string | null;
+    /**
      * Is Active
      */
     is_active?: boolean;
@@ -212,6 +216,10 @@ export type ProductPublic = {
      * Stock
      */
     stock?: number;
+    /**
+     * Barcode
+     */
+    barcode?: string | null;
     /**
      * Is Active
      */
@@ -254,6 +262,10 @@ export type ProductUpdate = {
      * Stock
      */
     stock?: number | null;
+    /**
+     * Barcode
+     */
+    barcode?: string | null;
     /**
      * Is Active
      */

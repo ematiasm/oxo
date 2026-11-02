@@ -263,3 +263,116 @@ def test_delete_product_not_found(
     )
     assert response.status_code == 404
     assert response.json()["detail"] == "Product not found"
+
+
+def test_create_product_with_barcode(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    data = {
+        "name": "Mate",
+        "sku": random_sku(),
+        "price": "1500.50",
+        "stock": 10,
+        "barcode": "7790001234567",
+    }
+    response = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=data,
+    )
+    assert response.status_code == 200
+    content = response.json()
+    assert content["barcode"] == "7790001234567"
+
+    response = client.get(
+        f"{settings.API_V1_STR}/products/{content['id']}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["barcode"] == "7790001234567"
+
+
+def test_create_product_without_barcode_returns_null(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    data = {"name": "Mate", "sku": random_sku(), "price": "10.00", "stock": 1}
+    response = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json=data,
+    )
+    assert response.status_code == 200
+    assert response.json()["barcode"] is None
+
+
+def test_update_product_barcode(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    product = create_random_product(db)
+    response = client.put(
+        f"{settings.API_V1_STR}/products/{product.id}",
+        headers=superuser_token_headers,
+        json={"barcode": "1234567890128"},
+    )
+    assert response.status_code == 200
+    assert response.json()["barcode"] == "1234567890128"
+
+
+def test_update_product_barcode_can_be_cleared(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    product = create_random_product(db)
+    client.put(
+        f"{settings.API_V1_STR}/products/{product.id}",
+        headers=superuser_token_headers,
+        json={"barcode": "1234567890128"},
+    )
+    response = client.put(
+        f"{settings.API_V1_STR}/products/{product.id}",
+        headers=superuser_token_headers,
+        json={"barcode": None},
+    )
+    assert response.status_code == 200
+    assert response.json()["barcode"] is None
+
+
+def test_create_product_rejects_barcode_longer_than_64(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    base = {"name": "Mate", "price": "10.00", "stock": 1}
+    accepted = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json={**base, "sku": random_sku(), "barcode": "b" * 64},
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["barcode"] == "b" * 64
+
+    rejected = client.post(
+        f"{settings.API_V1_STR}/products/",
+        headers=superuser_token_headers,
+        json={**base, "sku": random_sku(), "barcode": "b" * 65},
+    )
+    assert rejected.status_code == 422
+    detail = rejected.json()["detail"][0]
+    assert detail["loc"] == ["body", "barcode"]
+    assert detail["msg"] == "String should have at most 64 characters"
+
+
+def test_update_product_without_barcode_keeps_stored_barcode(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    product = create_random_product(db)
+    client.put(
+        f"{settings.API_V1_STR}/products/{product.id}",
+        headers=superuser_token_headers,
+        json={"barcode": "7790001234567"},
+    )
+    response = client.put(
+        f"{settings.API_V1_STR}/products/{product.id}",
+        headers=superuser_token_headers,
+        json={"stock": 42},
+    )
+    assert response.status_code == 200
+    assert response.json()["stock"] == 42
+    assert response.json()["barcode"] == "7790001234567"
