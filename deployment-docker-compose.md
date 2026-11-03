@@ -1,139 +1,98 @@
-# FastAPI Project - Docker Compose Deployment
+# Docker Compose Deployment on a Local Network
 
-You can deploy the project to your own remote server with Docker Compose. The deployment configuration includes Traefik to handle HTTPS and route incoming traffic to the application.
+This guide deploys the application to a single machine that serves it over a local network (LAN) and over Tailscale. It is not an internet-facing deployment: there is no domain name, no HTTPS and no reverse proxy.
+
+The deployment runs two containers:
+
+- `db` — PostgreSQL, reachable only from the backend container.
+- `backend` — FastAPI with the compiled frontend, serving the application and the API on port `8100`.
+
+The backend image also builds the frontend (see `backend/Dockerfile`), so there is no separate frontend container. Traefik, Adminer, Mailpit and Playwright are not part of the deployment.
 
 ## Preparation
 
-* Have a remote server ready and available.
-* Configure DNS records pointing to the server for the application domain and any supporting service subdomains you want to expose, such as `fastapi-project.example.com` and `adminer.fastapi-project.example.com`.
-* Install and configure [Docker](https://docs.docker.com/engine/install/) on the remote server (Docker Engine, not Docker Desktop).
-
-## Copy the Code
-
-```bash
-rsync -av --exclude=".git/" --filter=":- .gitignore" ./ root@your-server.example.com:/root/code/app/
-```
-
-The `--filter=":- .gitignore"` option tells `rsync` to use the same ignore rules as Git, excluding files such as the Python virtual environment.
+- Have the machine that will serve the application ready.
+- Install [Docker](https://docs.docker.com/engine/install/) (Docker Engine, not Docker Desktop).
+- Install and connect [Tailscale](https://tailscale.com/download) if the application must be reachable from the tailnet.
+- Note the machine's addresses, for example `192.168.0.101` for the LAN and `100.127.160.19` for Tailscale. Both are used below.
 
 ## Configure the Application
 
-### Environment Variables
-
-Set the application domain, project name, and first superuser email:
+Deployment settings live in `.env.deploy`, a separate file from the development `.env`. Create it from the tracked example:
 
 ```bash
-export DOMAIN=fastapi-project.example.com
-export PROJECT_NAME="Full Stack FastAPI Project"
-export FIRST_SUPERUSER=admin@example.com
+cp env.deploy.example .env.deploy
 ```
 
-You can also configure these environment variables as needed:
-
-* `SMTP_HOST`: The SMTP server host from your email provider.
-* `SMTP_USER`: The SMTP server user.
-* `EMAILS_FROM_EMAIL`: The email account used to send emails.
-* `SENTRY_DSN`: The DSN for Sentry.
-
-### Secrets
-
-Generate and set secure values for the database password, token signing key, and first superuser password:
+Then fill it in. Generate each secret with:
 
 ```bash
-export POSTGRES_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-export FIRST_SUPERUSER_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
 
-To use an authenticated email provider, also set `SMTP_PASSWORD`.
+`PROJECT_NAME`, `FIRST_SUPERUSER`, `FIRST_SUPERUSER_PASSWORD`, `POSTGRES_PASSWORD` and `SECRET_KEY` are required. `FRONTEND_HOST` is the base URL users open the application with, including the port:
+
+```bash
+FRONTEND_HOST=http://192.168.0.101:8100
+```
+
+It is used to build the link in password recovery emails, so it must match the address users actually open. Emails themselves are optional: leaving `SMTP_HOST` and `EMAILS_FROM_EMAIL` empty disables password recovery by email.
+
+`.env.deploy` is ignored by Git and must never be committed. The backend refuses to start while `SECRET_KEY`, `POSTGRES_PASSWORD` or `FIRST_SUPERUSER_PASSWORD` are set to `changethis`.
 
 ## Deploy
 
-```bash
-cd /root/code/app/
-docker compose -f compose.yml -f compose.deploy.yml build
-docker compose -f compose.yml -f compose.deploy.yml run --rm backend bash scripts/prestart.sh
-docker compose -f compose.yml -f compose.deploy.yml up -d
-```
-
-The `compose.deploy.yml` file adds HTTPS and automatic certificate handling to the shared `compose.yml` configuration. Explicitly listing both files excludes the local settings from `compose.override.yml`.
-
-The backend Docker image builds the frontend, so the server does not need Bun or prebuilt frontend files.
-
-## Deploy with GitHub Actions
-
-The included `.github/workflows/deploy-docker-compose.yml` workflow runs the deployment commands on the server when manually triggered from GitHub Actions.
-
-Use a self-hosted runner only for a repository whose contributors and workflow code you trust. GitHub recommends using self-hosted runners with private repositories because workflows execute directly on the runner machine.
-
-### Configure Repository Variables and Secrets
-
-In the repository, go to **Settings** > **Secrets and variables** > **Actions** and add these repository variables:
-
-* `DOMAIN`
-* `PROJECT_NAME`
-* `FIRST_SUPERUSER`
-
-To enable emails, add these optional repository variables:
-
-* `SMTP_HOST`
-* `SMTP_USER`
-* `EMAILS_FROM_EMAIL`
-
-To enable Sentry, add the optional `SENTRY_DSN` repository variable.
-
-Add these repository secrets:
-
-* `POSTGRES_PASSWORD`
-* `SECRET_KEY`
-* `FIRST_SUPERUSER_PASSWORD`
-
-To use an authenticated email provider, add the optional `SMTP_PASSWORD` repository secret.
-
-### Install a Self-Hosted Runner
-
-On the server, create a dedicated user and grant it access to Docker:
+Always pass both `-f compose.deploy.yml` and `--env-file .env.deploy`. Listing a single `-f` file also stops Docker Compose from loading `compose.override.yml`, the local development settings:
 
 ```bash
-sudo adduser github
-sudo usermod -aG docker github
-sudo su - github
+docker compose -f compose.deploy.yml --env-file .env.deploy build
+docker compose -f compose.deploy.yml --env-file .env.deploy run --rm backend bash scripts/prestart.sh
+docker compose -f compose.deploy.yml --env-file .env.deploy up -d
 ```
 
-In the GitHub repository, go to **Settings** > **Actions** > **Runners**, select **New self-hosted runner**, choose Linux, and follow the commands GitHub provides to download, configure, and register the runner. Install it in `/home/github/actions-runner`.
+The second command applies the database migrations and creates the first superuser. Run it on the first deployment and after every change that adds migrations.
 
-After registering the runner, exit the `github` user session and install the runner as a system service:
-
-```bash
-exit
-cd /home/github/actions-runner
-sudo ./svc.sh install github
-sudo ./svc.sh start
-sudo ./svc.sh status
-```
-
-See GitHub's guides for [adding a self-hosted runner](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners) and [configuring the runner as a service](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/configure-the-application?platform=linux).
-
-### Run the Deployment
-
-When the runner is online, open the repository's **Actions** tab, select **Deploy with Docker Compose**, and select **Run workflow**.
+`--env-file` replaces `.env` for variable interpolation, so no development value leaks into the deployment. The backend container receives every setting it needs from `compose.deploy.yml` and does not read the development `.env`.
 
 ## URLs
 
-Replace `fastapi-project.example.com` with your domain.
+Replace the addresses with the machine's own:
 
-Application (frontend and API): `https://fastapi-project.example.com`
+- Application (frontend and API) on the LAN: `http://192.168.0.101:8100`
+- Application on the tailnet: `http://100.127.160.19:8100`
+- Interactive API docs: `http://192.168.0.101:8100/docs`
 
-Interactive API docs: `https://fastapi-project.example.com/docs`
+The compiled frontend calls the API on the same origin it was loaded from, so one image serves both addresses and no rebuild is needed to reach the application by a different address.
 
-Adminer: `https://adminer.fastapi-project.example.com`
+## Data, Projects and Volumes
 
-## GitHub Repository Automation
+`compose.deploy.yml` declares `name: oxo`, and its database volume is named `oxo-db-data`. The development stack declared in `compose.yml` uses the project name `oxo-dev` and the volume `oxo-dev-app-db-data`. The two stacks never share a database, and both can run at the same time.
 
-Install the following GitHub Apps to enable the included repository automation:
+To discard the deployment data and start over, stop the stack and remove only its volume:
 
-* [Latest Changes](https://github.com/apps/latest-changes) updates `release-notes.md` when a pull request is merged.
-* [PR Push](https://github.com/apps/pr-push) lets the pre-commit workflow push automated fixes to pull request branches.
-* [PR Submit](https://github.com/apps/pr-submit) lets the **Bump pre-commit hooks** and **Prepare Release** workflows create pull requests.
+```bash
+docker compose -f compose.deploy.yml --env-file .env.deploy down
+docker volume rm oxo-db-data
+```
 
-To publish code coverage with [Smokeshow](https://github.com/samuelcolvin/smokeshow), add `SMOKESHOW_AUTH_KEY` as a repository secret.
+## Reachability
+
+Publishing a port with Docker bypasses `ufw` rules: Docker writes its own NAT and forwarding rules, so a published port is reachable from the network even when `ufw` has no rule for it. This applies to `8100` from the LAN.
+
+Tailscale does not expose the port to the local network; the application is reachable from the tailnet at the Tailscale address of the machine.
+
+To bind the published port to specific addresses instead of every interface, replace the port mapping in `compose.deploy.yml`:
+
+```yaml
+ports:
+  - "192.168.0.101:8100:8000"
+  - "100.127.160.19:8100:8000"
+```
+
+## Stopping and Restarting
+
+```bash
+docker compose -f compose.deploy.yml --env-file .env.deploy down
+```
+
+Both services use `restart: unless-stopped`, so they come back after a reboot unless they were stopped explicitly.

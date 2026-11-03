@@ -22,6 +22,9 @@ extend-exclude = [
     "backend/app/frontend/",
     "frontend/dist/",
     "frontend/public/assets/images/",
+    # ODD feature documents quote the user's requests verbatim and may be
+    # written in the project's working language.
+    "odd/",
 ]
 
 [tool.typos.default]
