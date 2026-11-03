@@ -28,9 +28,13 @@ updates:
       prefix: ⬆
     labels: [dependencies, internal]
     groups:
+      # Routine updates only; a major matching no group gets its own PR.
       python-packages:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
   # bun
   - package-ecosystem: bun
     directory: /
@@ -42,11 +46,20 @@ updates:
       prefix: ⬆
     labels: [dependencies, internal]
     ignore:
+      # Pinned deliberately: its generated output is committed, and the SDK
+      # regeneration is reviewed on its own.
       - dependency-name: "@hey-api/openapi-ts"
     groups:
+      # Only routine updates are grouped. A major that matches no group is raised
+      # as its own PR, so it can be reviewed and reverted alone. Grouping majors
+      # is what produced a 31-package PR containing typescript 6->7, which broke
+      # the generated client through a transitive API change.
       npm-packages:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
   # Docker
   - package-ecosystem: docker
     directories:
