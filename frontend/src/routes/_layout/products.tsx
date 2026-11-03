@@ -1,13 +1,14 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Search } from "lucide-react"
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 
-import { ProductsService } from "@/client"
+import { type ProductPublic, ProductsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import PendingProducts from "@/components/Pending/PendingProducts"
 import AddProduct from "@/components/Products/AddProduct"
 import { getProductColumns } from "@/components/Products/columns"
+import ProductEditDrawer from "@/components/Products/ProductEditDrawer"
 import useAuth from "@/hooks/useAuth"
 
 function getProductsQueryOptions() {
@@ -30,7 +31,13 @@ export const Route = createFileRoute("/_layout/products")({
   }),
 })
 
-function ProductsTableContent({ canWrite }: { canWrite: boolean }) {
+function ProductsTableContent({
+  canWrite,
+  onEdit,
+}: {
+  canWrite: boolean
+  onEdit: (product: ProductPublic) => void
+}) {
   const { data: products } = useSuspenseQuery(getProductsQueryOptions())
 
   if (products.data.length === 0) {
@@ -46,14 +53,23 @@ function ProductsTableContent({ canWrite }: { canWrite: boolean }) {
   }
 
   return (
-    <DataTable columns={getProductColumns(canWrite)} data={products.data} />
+    <DataTable
+      columns={getProductColumns(canWrite, canWrite ? onEdit : undefined)}
+      data={products.data}
+    />
   )
 }
 
-function ProductsTable({ canWrite }: { canWrite: boolean }) {
+function ProductsTable({
+  canWrite,
+  onEdit,
+}: {
+  canWrite: boolean
+  onEdit: (product: ProductPublic) => void
+}) {
   return (
     <Suspense fallback={<PendingProducts />}>
-      <ProductsTableContent canWrite={canWrite} />
+      <ProductsTableContent canWrite={canWrite} onEdit={onEdit} />
     </Suspense>
   )
 }
@@ -61,6 +77,8 @@ function ProductsTable({ canWrite }: { canWrite: boolean }) {
 function Products() {
   const { user } = useAuth()
   const canWrite = user?.is_superuser === true
+  // null means closed; the product itself identifies which row is being edited.
+  const [editing, setEditing] = useState<ProductPublic | null>(null)
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,7 +89,15 @@ function Products() {
         </div>
         {canWrite && <AddProduct />}
       </div>
-      <ProductsTable canWrite={canWrite} />
+      <ProductsTable canWrite={canWrite} onEdit={setEditing} />
+      {canWrite && (
+        <ProductEditDrawer
+          product={editing}
+          onOpenChange={(open) => {
+            if (!open) setEditing(null)
+          }}
+        />
+      )}
     </div>
   )
 }

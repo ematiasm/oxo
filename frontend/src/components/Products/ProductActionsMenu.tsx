@@ -9,24 +9,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import DeleteProduct from "./DeleteProduct"
-import EditProduct from "./EditProduct"
 
 interface ProductActionsMenuProps {
   product: ProductPublic
 }
 
+/**
+ * Per-row destructive actions. Editing is not here: the product name in the
+ * table is a button that opens the edit drawer, so this menu only holds the
+ * actions that do not fit in the row.
+ */
 export const ProductActionsMenu = ({ product }: ProductActionsMenuProps) => {
   const [open, setOpen] = useState(false)
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" aria-label="Product actions">
           <EllipsisVertical />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <EditProduct product={product} onSuccess={() => setOpen(false)} />
         <DeleteProduct id={product.id} onSuccess={() => setOpen(false)} />
       </DropdownMenuContent>
     </DropdownMenu>

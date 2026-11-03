@@ -24,6 +24,9 @@ export const productFormSchema = z.object({
     }),
   stock: z.number().int().min(0, { message: "Stock cannot be negative" }),
   description: z.string().optional(),
+  // Optional so the create dialog can keep sharing this schema: the API's own
+  // default for a new product is active.
+  is_active: z.boolean().optional(),
 })
 
 export type ProductFormData = z.infer<typeof productFormSchema>
