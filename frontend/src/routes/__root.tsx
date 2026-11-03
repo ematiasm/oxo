@@ -9,8 +9,16 @@ export const Route = createRootRoute({
     <>
       <HeadContent />
       <Outlet />
-      <TanStackRouterDevtools position="bottom-right" />
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/*
+        The devtools toggles ship with a hardcoded z-index of 99999, which puts
+        them above every dialog and drawer in the app. Trapping them in their own
+        stacking context keeps that value local, so a modal (z-50) correctly
+        covers them instead of the other way around.
+      */}
+      <div className="isolate z-40">
+        <TanStackRouterDevtools position="bottom-right" />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </div>
     </>
   ),
   notFoundComponent: () => <NotFound />,
