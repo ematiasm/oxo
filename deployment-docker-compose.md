@@ -18,10 +18,10 @@ The backend image also builds the frontend (see `backend/Dockerfile`), so there 
 
 ## Configure the Application
 
-Deployment settings live in `.env.prod`, a separate file from the development `.env`. Create it from the tracked example:
+Deployment settings live in `.env.deploy`, a separate file from the development `.env`. Create it from the tracked example:
 
 ```bash
-cp env.prod.example .env.prod
+cp env.deploy.example .env.deploy
 ```
 
 Then fill it in. Generate each secret with:
@@ -38,16 +38,16 @@ FRONTEND_HOST=http://192.168.0.101:8000
 
 It is used to build the link in password recovery emails, so it must match the address users actually open. Emails themselves are optional: leaving `SMTP_HOST` and `EMAILS_FROM_EMAIL` empty disables password recovery by email.
 
-`.env.prod` is ignored by Git and must never be committed. The backend refuses to start while `SECRET_KEY`, `POSTGRES_PASSWORD` or `FIRST_SUPERUSER_PASSWORD` are set to `changethis`.
+`.env.deploy` is ignored by Git and must never be committed. The backend refuses to start while `SECRET_KEY`, `POSTGRES_PASSWORD` or `FIRST_SUPERUSER_PASSWORD` are set to `changethis`.
 
 ## Deploy
 
-Always pass both `-f compose.deploy.yml` and `--env-file .env.prod`. Listing a single `-f` file also stops Docker Compose from loading `compose.override.yml`, the local development settings:
+Always pass both `-f compose.deploy.yml` and `--env-file .env.deploy`. Listing a single `-f` file also stops Docker Compose from loading `compose.override.yml`, the local development settings:
 
 ```bash
-docker compose -f compose.deploy.yml --env-file .env.prod build
-docker compose -f compose.deploy.yml --env-file .env.prod run --rm backend bash scripts/prestart.sh
-docker compose -f compose.deploy.yml --env-file .env.prod up -d
+docker compose -f compose.deploy.yml --env-file .env.deploy build
+docker compose -f compose.deploy.yml --env-file .env.deploy run --rm backend bash scripts/prestart.sh
+docker compose -f compose.deploy.yml --env-file .env.deploy up -d
 ```
 
 The second command applies the database migrations and creates the first superuser. Run it on the first deployment and after every change that adds migrations.
@@ -71,7 +71,7 @@ The compiled frontend calls the API on the same origin it was loaded from, so on
 To discard the deployment data and start over, stop the stack and remove only its volume:
 
 ```bash
-docker compose -f compose.deploy.yml --env-file .env.prod down
+docker compose -f compose.deploy.yml --env-file .env.deploy down
 docker volume rm oxo-db-data
 ```
 
@@ -92,7 +92,7 @@ ports:
 ## Stopping and Restarting
 
 ```bash
-docker compose -f compose.deploy.yml --env-file .env.prod down
+docker compose -f compose.deploy.yml --env-file .env.deploy down
 ```
 
 Both services use `restart: unless-stopped`, so they come back after a reboot unless they were stopped explicitly.

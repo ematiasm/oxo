@@ -11,3 +11,6 @@ backend/app/frontend/
 
 # Local design drafts (gentle-design canvas)
 design/
+
+# Deployment secrets (only .env.deploy.example is tracked)
+.env.deploy

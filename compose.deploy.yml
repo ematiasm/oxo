@@ -8,11 +8,11 @@
 # Always pass -f and --env-file. Listing a single -f file also stops Docker
 # Compose from loading compose.override.yml, the local development settings.
 #
-#   docker compose -f compose.deploy.yml --env-file .env.prod build
-#   docker compose -f compose.deploy.yml --env-file .env.prod run --rm backend bash scripts/prestart.sh
-#   docker compose -f compose.deploy.yml --env-file .env.prod up -d
+#   docker compose -f compose.deploy.yml --env-file .env.deploy build
+#   docker compose -f compose.deploy.yml --env-file .env.deploy run --rm backend bash scripts/prestart.sh
+#   docker compose -f compose.deploy.yml --env-file .env.deploy up -d
 #
-# Configuration lives in .env.prod, created from env.prod.example.
+# Configuration lives in .env.deploy, created from env.deploy.example.
 # See deployment-docker-compose.md.
 
 name: oxo
