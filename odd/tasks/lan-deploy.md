@@ -9,7 +9,7 @@ Deploy self-hosted de oxo para una sola máquina, alcanzable desde la LAN y desd
 - **S3** — Levantar "solo lo necesario, el docker de postgres y el de backend y frontend (estos se levantan en una sola imagen)". Dos servicios: `db` y `backend`.
 - **S4** — "dejando traefik y adminer que no son necesario para un solo sevicio": sin Traefik, sin Adminer, sin Mailpit, sin Playwright, sin HTTPS/Let's Encrypt.
 - **S5** — La configuración del deploy vive en `.env.prod` (no `.env`, no `.env.deploy`), cargado con `--env-file`.
-- **S6** — Puerto publicado `8000:8000`; `FRONTEND_HOST` incluye `:8000`.
+- **S6** — Puerto publicado host `8100` hacia el contenedor en `8000`; `FRONTEND_HOST` incluye `:8100`. El puerto 8000 no se puede publicar porque el stack de desarrollo ya lo ocupa (`compose.override.yml`) y Traefik toma el 80.
 - **S7** — Proyecto Compose del deploy aislado con `name: oxo`.
 - **S8** — El proyecto Compose de desarrollo se renombra a `oxo-dev`.
 - **S9** — Volúmenes con nombre explícito: deploy `oxo-db-data`, desarrollo `oxo-dev-app-db-data`. Ya no se comparte volumen entre dev y deploy.
@@ -30,6 +30,7 @@ Deploy self-hosted de oxo para una sola máquina, alcanzable desde la LAN y desd
 | T6 | S5,S8,S13 | inline | actualiza `development.md` y `env.prod.example` |
 | T7 | S2-S13 | inline | verifica con `docker compose config` y levanta el stack real |
 | T8 | S5 | inline | renombra el archivo de entorno del deploy a `.env.deploy` |
+| T9 | S6 | inline | mueve el deploy al puerto host 8100 para no chocar con dev |
 
 ## Evidence
 
@@ -41,6 +42,9 @@ Deploy self-hosted de oxo para una sola máquina, alcanzable desde la LAN y desd
 - **L5** (hallazgo propio, corregido en T8): `.env.deploy` no estaba en `.gitignore` (solo estaba `.env.prod`) y tenía permisos `644`. Se agregó la regla, se puso `600` y se borró el `.env.prod` viejo.
 - **L6** (decisión del usuario): `FRONTEND_HOST` queda en la IP de LAN, `http://192.168.0.101:8000`, no la de Tailscale. Se verificó que `FRONTEND_HOST` se usa en tres lugares: link de reseteo (`utils.py:73`), link de cuenta nueva (`utils.py:99`) y `allow_origins` de CORS (`main.py:29`); en el deploy el tercero es inerte porque el frontend compilado llama a la API en el mismo origen.
 - **L7** (verificación con el `.env.deploy` real): el `POSTGRES_PASSWORD` del usuario tiene `%`, `&` y dos `@`, y el `DATABASE_URL` interpolado queda ambiguo. Se probó de punta a punta: pydantic re-codifica los `@` a `%40%40` al validar el `PostgresDsn` y el stack conecta bien. Riesgo latente, no fallo activo.
+- **L8** (decisión del usuario): "bueno pasa el deploy al 8100". Motivo: los dos stacks piden el puerto 8000 y el dev no puede arrancar mientras el deploy está arriba (`Bind for 0.0.0.0:8000 failed: port is already allocated`, reproducido con los dos levantados). Se movió solo el lado host de `ports`; el contenedor sigue escuchando en 8000 (healthcheck y uvicorn) y `FRONTEND_HOST` pasó a `:8100`. Commit `34992f0`, tarea T9.
+- **L9** (hallazgo del refuter en el review `review-afb9019a2528eb2a`, CRITICAL `R4-port-change-breaks-existing-urls`): el cambio de puerto no estaba declarado en este documento — ni en `S6` (que seguía diciendo `8000:8000`) ni en `## Tasks` (no había tarea que lo cubriera). La afirmación de que el cambio era "unrequested" no aplica: lo pidió el usuario en L8. Pero la corrección documental sí era necesaria y se aplicó aquí: `S6` reescrito y `T9` agregada.
+- **Ruta de migración**: `compose.deploy.yml` nunca llegó a `main`; vive solo en este branch. No existe un deployment previo en el puerto 8000 al que migrar, así que no hay URLs ni integraciones que romper.
 
 ## Log
 
