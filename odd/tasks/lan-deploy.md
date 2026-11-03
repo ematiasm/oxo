@@ -30,6 +30,12 @@ Deploy self-hosted de oxo para una sola máquina, alcanzable desde la LAN y desd
 | T6 | S5,S8,S13 | inline | actualiza `development.md` y `env.prod.example` |
 | T7 | S2-S13 | inline | verifica con `docker compose config` y levanta el stack real |
 
+## Evidence
+
+- Commit `253261b` — T1-T7: `compose.deploy.yml` reescrito, dev renombrado a `oxo-dev`, `compose.prod.yml` y el workflow de deploy eliminados, documentación y `env.prod.example` actualizados, 405 líneas cambiadas (145+/260-).
+- Verificación real: `build` OK; `prestart.sh` aplicó las 7 migraciones y creó el superusuario; `up -d` dejó `oxo-db-1` y `oxo-backend-1` en `healthy`; health-check, raíz, `/docs`, el bundle JS (329 357 bytes) y el login devolvieron 200 por `192.168.0.101:8000`, `100.127.160.19:8000` y `localhost:8000`; el bundle no lleva `baseURL` absoluto; el contenedor no recibió `SMTP_HOST=mailpit`, `POSTGRES_PASSWORD=changethis` ni `FASTAPI_ENV` del `.env` de desarrollo. Stack bajado y volumen de prueba eliminado.
+- Hallazgo durante la verificación: `FIRST_SUPERUSER=admin@oxo.local` no valida (sufijo reservado). El ejemplo del template tenía el mismo defecto; `env.prod.example` ahora usa `admin@example.com`.
+
 ## Log
 
 - **L1** (pedido original, verbatim):
