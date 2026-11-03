@@ -183,7 +183,16 @@ test.describe("Non-superuser cannot write", () => {
 
 test.describe("Product table columns", () => {
   test.beforeEach(async ({ page }) => {
+    // The column headers only exist once the table has rows: an empty catalog
+    // renders the empty state instead. Create one so this test does not depend
+    // on another spec having run first.
     await page.goto("/products")
+    await page.getByRole("button", { name: "Add Product" }).click()
+    await page.getByLabel("Name").fill(randomProductName())
+    await page.getByLabel("SKU").fill(randomSku())
+    await page.getByLabel("Price").fill("10.00")
+    await page.getByRole("button", { name: "Save" }).click()
+    await expect(page.getByText("Product created successfully")).toBeVisible()
   })
 
   test("Hides the ID column and shows the requested columns", async ({
