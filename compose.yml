@@ -1,3 +1,5 @@
+name: oxo-dev
+
 services:
 
   proxy:
@@ -86,3 +88,6 @@ services:
 
 volumes:
   app-db-data:
+    # Explicit volume name: the development database must not collide with the
+    # deployment database volume (oxo-db-data).
+    name: oxo-dev-app-db-data

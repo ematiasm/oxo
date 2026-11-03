@@ -87,7 +87,9 @@ The main `compose.yml` file contains the configuration shared by the whole stack
 
 The `compose.override.yml` file adds local development settings, such as mounting the source code as a volume. Docker Compose also loads it automatically and applies it on top of `compose.yml`.
 
-The `compose.deploy.yml` file contains the deployment-specific settings, including HTTPS and automatic certificate handling. It is explicitly combined with `compose.yml` when deploying the application.
+The `compose.deploy.yml` file contains the deployment-specific settings for a single machine reachable over a local network and Tailscale: PostgreSQL and the backend image, which also serves the compiled frontend. It is used on its own, with `.env.prod`, and never combined with `compose.yml` or `compose.override.yml`.
+
+The development stack uses the Compose project name `oxo-dev` and the database volume `oxo-dev-app-db-data`, both declared in `compose.yml`. The deployment described in `compose.deploy.yml` is a separate project (`oxo`) with its own volume, so both can run at the same time.
 
 The backend reads local settings from the `.env` file. Docker Compose also uses it for variable interpolation and passes the settings each container needs.
 

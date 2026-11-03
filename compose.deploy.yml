@@ -1,61 +1,82 @@
+# Self-hosted deployment for a single machine, reachable from the local network
+# (LAN) and from the Tailscale network.
+#
+# Two services: db (PostgreSQL) and backend. The backend image also builds and
+# serves the frontend, so there is no separate frontend container. Traefik,
+# Adminer, Mailpit and Playwright are not part of the deployment.
+#
+# Always pass -f and --env-file. Listing a single -f file also stops Docker
+# Compose from loading compose.override.yml, the local development settings.
+#
+#   docker compose -f compose.deploy.yml --env-file .env.prod build
+#   docker compose -f compose.deploy.yml --env-file .env.prod run --rm backend bash scripts/prestart.sh
+#   docker compose -f compose.deploy.yml --env-file .env.prod up -d
+#
+# Configuration lives in .env.prod, created from env.prod.example.
+# See deployment-docker-compose.md.
+
+name: oxo
+
 services:
 
-  proxy:
-    restart: always
-    ports:
-      # Listen on port 80, default for HTTP, necessary to redirect to HTTPS
-      - "80:80"
-      # Listen on port 443, default for HTTPS
-      - "443:443"
-    volumes:
-      # Mount the volume to store the certificates
-      - traefik-certificates:/certificates
-    command:
-      # Enable Docker in Traefik, so that it reads labels from Docker services
-      - --providers.docker
-      # Do not expose all Docker services, only the ones explicitly exposed
-      - --providers.docker.exposedbydefault=false
-      # Create an entrypoint "http" listening on port 80
-      - --entrypoints.http.address=:80
-      # Redirect all HTTP traffic to HTTPS
-      - --entrypoints.http.http.redirections.entrypoint.to=https
-      - --entrypoints.http.http.redirections.entrypoint.scheme=https
-      # Create an entrypoint "https" listening on port 443
-      - --entrypoints.https.address=:443
-      # Store the Let's Encrypt certificates in the mounted volume
-      - --certificatesresolvers.le.acme.storage=/certificates/acme.json
-      # Use the TLS Challenge for Let's Encrypt
-      - --certificatesresolvers.le.acme.tlschallenge=true
-      # Enable the access log, with HTTP requests
-      - --accesslog
-      # Enable the Traefik log, for configurations and errors
-      - --log
-
   db:
-    restart: always
-
-  adminer:
-    restart: always
-    labels:
-      # Route HTTPS traffic for the Adminer subdomain
-      - traefik.http.routers.adminer-https.rule=Host(`adminer.${DOMAIN:?Variable not set}`)
-      - traefik.http.routers.adminer-https.entrypoints=https
-      - traefik.http.routers.adminer-https.tls=true
-      # Use the Let's Encrypt resolver
-      - traefik.http.routers.adminer-https.tls.certresolver=le
+    image: postgres:18
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    volumes:
+      - app-db-data:/var/lib/postgresql
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Variable not set}
+      - POSTGRES_DB=app
+    # No published port: the database is only reachable from the backend
+    # container, never from the LAN or the tailnet.
 
   backend:
-    restart: always
+    image: backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      # Reached at http://<lan-ip>:8000 and http://<tailscale-ip>:8000.
+      # The compiled frontend calls the API on the same origin it was loaded
+      # from, so one image serves both addresses without a rebuild.
+      - "8000:8000"
     environment:
-      FRONTEND_HOST: https://${DOMAIN:?Variable not set}
-    labels:
-      # Route HTTPS traffic for this domain
-      - traefik.http.routers.backend-https.rule=Host(`${DOMAIN:?Variable not set}`)
-      - traefik.http.routers.backend-https.entrypoints=https
-      - traefik.http.routers.backend-https.tls=true
-      # Use the Let's Encrypt resolver
-      - traefik.http.routers.backend-https.tls.certresolver=le
+      PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
+      SECRET_KEY: ${SECRET_KEY:?Variable not set}
+      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
+      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
+      # Base URL users open the app with, including the port. It is used to
+      # build the password recovery link.
+      FRONTEND_HOST: ${FRONTEND_HOST:?Variable not set}
+      # Emails are optional: leaving these empty disables password recovery
+      # by email.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  # Create a volume to store the certificates, even if the container is recreated
-  traefik-certificates:
+  app-db-data:
+    # Explicit volume name: the deployment must not collide with the development
+    # database volume (oxo-dev-app-db-data).
+    name: oxo-db-data
