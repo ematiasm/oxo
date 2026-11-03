@@ -1,0 +1,67 @@
+# Despliegue de producción mínimo para LAN / Tailscale.
+# Solo dos servicios: db (Postgres) y backend (FastAPI + frontend compilado).
+# Sin Traefik, Adminer, Mailpit ni Playwright.
+#
+# Uso (siempre con -f y --env-file, así NO se carga compose.override.yml):
+#   docker compose -f compose.prod.yml --env-file .env.prod build
+#   docker compose -f compose.prod.yml --env-file .env.prod run --rm backend bash scripts/prestart.sh
+#   docker compose -f compose.prod.yml --env-file .env.prod up -d
+
+services:
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    volumes:
+      - app-db-data:/var/lib/postgresql
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Variable not set}
+      - POSTGRES_DB=app
+    # Sin "ports": la base solo es accesible desde el contenedor backend,
+    # no desde la red del local.
+
+  backend:
+    image: backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      # Puerto 80 del servidor -> 8000 del contenedor.
+      # Se entra con http://IP-DEL-SERVIDOR/ (sin escribir el puerto).
+      # Si el 80 está ocupado en el servidor, usá "8000:8000".
+      - "80:8000"
+    environment:
+      PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
+      SECRET_KEY: ${SECRET_KEY:?Variable not set}
+      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
+      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
+      # URL con la que los usuarios entran a la app. Se usa para armar el link
+      # de los mails de recuperación de contraseña (sin esto apunta a localhost).
+      FRONTEND_HOST: ${FRONTEND_HOST:?Variable not set}
+      # Mails (opcional). Vacío = recuperación por mail desactivada.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAILS_FROM_EMAIL: ${EMAILS_FROM_EMAIL:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  app-db-data:
