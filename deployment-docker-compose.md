@@ -5,7 +5,7 @@ This guide deploys the application to a single machine that serves it over a loc
 The deployment runs two containers:
 
 - `db` — PostgreSQL, reachable only from the backend container.
-- `backend` — FastAPI with the compiled frontend, serving the application and the API on port `8000`.
+- `backend` — FastAPI with the compiled frontend, serving the application and the API on port `8100`.
 
 The backend image also builds the frontend (see `backend/Dockerfile`), so there is no separate frontend container. Traefik, Adminer, Mailpit and Playwright are not part of the deployment.
 
@@ -33,7 +33,7 @@ python -c 'import secrets; print(secrets.token_urlsafe(32))'
 `PROJECT_NAME`, `FIRST_SUPERUSER`, `FIRST_SUPERUSER_PASSWORD`, `POSTGRES_PASSWORD` and `SECRET_KEY` are required. `FRONTEND_HOST` is the base URL users open the application with, including the port:
 
 ```bash
-FRONTEND_HOST=http://192.168.0.101:8000
+FRONTEND_HOST=http://192.168.0.101:8100
 ```
 
 It is used to build the link in password recovery emails, so it must match the address users actually open. Emails themselves are optional: leaving `SMTP_HOST` and `EMAILS_FROM_EMAIL` empty disables password recovery by email.
@@ -58,9 +58,9 @@ The second command applies the database migrations and creates the first superus
 
 Replace the addresses with the machine's own:
 
-- Application (frontend and API) on the LAN: `http://192.168.0.101:8000`
-- Application on the tailnet: `http://100.127.160.19:8000`
-- Interactive API docs: `http://192.168.0.101:8000/docs`
+- Application (frontend and API) on the LAN: `http://192.168.0.101:8100`
+- Application on the tailnet: `http://100.127.160.19:8100`
+- Interactive API docs: `http://192.168.0.101:8100/docs`
 
 The compiled frontend calls the API on the same origin it was loaded from, so one image serves both addresses and no rebuild is needed to reach the application by a different address.
 
@@ -77,7 +77,7 @@ docker volume rm oxo-db-data
 
 ## Reachability
 
-Publishing a port with Docker bypasses `ufw` rules: Docker writes its own NAT and forwarding rules, so a published port is reachable from the network even when `ufw` has no rule for it. This applies to `8000` from the LAN.
+Publishing a port with Docker bypasses `ufw` rules: Docker writes its own NAT and forwarding rules, so a published port is reachable from the network even when `ufw` has no rule for it. This applies to `8100` from the LAN.
 
 Tailscale does not expose the port to the local network; the application is reachable from the tailnet at the Tailscale address of the machine.
 
@@ -85,8 +85,8 @@ To bind the published port to specific addresses instead of every interface, rep
 
 ```yaml
 ports:
-  - "192.168.0.101:8000:8000"
-  - "100.127.160.19:8000:8000"
+  - "192.168.0.101:8100:8000"
+  - "100.127.160.19:8100:8000"
 ```
 
 ## Stopping and Restarting

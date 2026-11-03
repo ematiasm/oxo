@@ -47,10 +47,12 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      # Reached at http://<lan-ip>:8000 and http://<tailscale-ip>:8000.
+      # Host 8100 -> container 8000. Reached at http://<lan-ip>:8100 and
+      # http://<tailscale-ip>:8100. Port 8000 is taken by the development
+      # stack (compose.override.yml), so the deployment cannot publish it.
       # The compiled frontend calls the API on the same origin it was loaded
       # from, so one image serves both addresses without a rebuild.
-      - "8000:8000"
+      - "8100:8000"
     environment:
       PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
       SECRET_KEY: ${SECRET_KEY:?Variable not set}
