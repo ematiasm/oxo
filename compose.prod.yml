@@ -1,8 +1,8 @@
-# Despliegue de producción mínimo para LAN / Tailscale.
-# Solo dos servicios: db (Postgres) y backend (FastAPI + frontend compilado).
-# Sin Traefik, Adminer, Mailpit ni Playwright.
+# Minimal production deployment for a LAN / Tailscale network.
+# Only two services: db (Postgres) and backend (FastAPI + built frontend).
+# No Traefik, Adminer, Mailpit or Playwright.
 #
-# Uso (siempre con -f y --env-file, así NO se carga compose.override.yml):
+# Usage (always with -f and --env-file, so compose.override.yml is NOT loaded):
 #   docker compose -f compose.prod.yml --env-file .env.prod build
 #   docker compose -f compose.prod.yml --env-file .env.prod run --rm backend bash scripts/prestart.sh
 #   docker compose -f compose.prod.yml --env-file .env.prod up -d
@@ -23,8 +23,8 @@ services:
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Variable not set}
       - POSTGRES_DB=app
-    # Sin "ports": la base solo es accesible desde el contenedor backend,
-    # no desde la red del local.
+    # No "ports": the database is only reachable from the backend container,
+    # not from the local network.
 
   backend:
     image: backend:latest
@@ -37,9 +37,9 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      # Puerto 80 del servidor -> 8000 del contenedor.
-      # Se entra con http://IP-DEL-SERVIDOR/ (sin escribir el puerto).
-      # Si el 80 está ocupado en el servidor, usá "8000:8000".
+      # Server port 80 -> container port 8000.
+      # Open http://SERVER-IP/ (no need to type the port).
+      # If port 80 is taken on the server, use "8000:8000".
       - "80:8000"
     environment:
       PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
@@ -47,10 +47,10 @@ services:
       FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
       FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
-      # URL con la que los usuarios entran a la app. Se usa para armar el link
-      # de los mails de recuperación de contraseña (sin esto apunta a localhost).
+      # URL users open the app with. Used to build the link in password
+      # recovery emails (without it, the link points to localhost).
       FRONTEND_HOST: ${FRONTEND_HOST:?Variable not set}
-      # Mails (opcional). Vacío = recuperación por mail desactivada.
+      # Emails (optional). Empty = password recovery by email disabled.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_TLS: ${SMTP_TLS:-true}
