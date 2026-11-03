@@ -5,7 +5,7 @@ import type { ProductPublic } from "@/client"
 import type { DataTableFeatures } from "@/components/Common/DataTable"
 import { ProductActionsMenu } from "./ProductActionsMenu"
 
-function formatDateTime(value: string | null | undefined) {
+export function formatDateTime(value: string | null | undefined) {
   if (!value) return "—"
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return value
@@ -26,7 +26,10 @@ interface ProductColumnSpec {
   header: string
   /** Skeleton cell for the loading state, so widths live next to the column. */
   skeletonClass: string
-  cell: (product: ProductPublic) => ReactNode
+  cell: (
+    product: ProductPublic,
+    onEdit?: (product: ProductPublic) => void,
+  ) => ReactNode
 }
 
 /**
@@ -39,7 +42,21 @@ const PRODUCT_COLUMN_SPECS: ProductColumnSpec[] = [
     accessorKey: "name",
     header: "Name",
     skeletonClass: "h-4 w-32",
-    cell: (product) => <span className="font-medium">{product.name}</span>,
+    // The name is the row's edit affordance: a real button that opens the
+    // product drawer. Without write access it degrades to plain text, so a
+    // normal user never gets a focusable control that does nothing.
+    cell: (product, onEdit) =>
+      onEdit ? (
+        <button
+          type="button"
+          onClick={() => onEdit(product)}
+          className="rounded-sm font-medium text-left underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          {product.name}
+        </button>
+      ) : (
+        <span className="font-medium">{product.name}</span>
+      ),
   },
   {
     accessorKey: "sku",
@@ -98,12 +115,13 @@ export const PRODUCT_COLUMN_HEADERS: string[] = [
 
 export function getProductColumns(
   canWrite: boolean,
+  onEdit?: (product: ProductPublic) => void,
 ): ColumnDef<DataTableFeatures, ProductPublic>[] {
   const columns: ColumnDef<DataTableFeatures, ProductPublic>[] =
     PRODUCT_COLUMN_SPECS.map((spec) => ({
       accessorKey: spec.accessorKey,
       header: spec.header,
-      cell: ({ row }) => spec.cell(row.original),
+      cell: ({ row }) => spec.cell(row.original, onEdit),
     }))
 
   if (canWrite) {

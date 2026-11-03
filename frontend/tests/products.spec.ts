@@ -117,13 +117,15 @@ test.describe("Products management", () => {
 
   test.describe("Edit and Delete", () => {
     let sku: string
+    let name: string
 
     test.beforeEach(async ({ page }) => {
       sku = randomSku()
+      name = randomProductName()
 
       await page.goto("/products")
       await page.getByRole("button", { name: "Add Product" }).click()
-      await page.getByLabel("Name").fill(randomProductName())
+      await page.getByLabel("Name").fill(name)
       await page.getByLabel("SKU").fill(sku)
       await page.getByLabel("Price").fill("500.00")
       await page.getByRole("button", { name: "Save" }).click()
@@ -134,9 +136,8 @@ test.describe("Products management", () => {
     test("Edit a product successfully", async ({ page }) => {
       const updatedName = randomProductName()
 
-      const productRow = page.getByRole("row").filter({ hasText: sku })
-      await productRow.getByRole("button").last().click()
-      await page.getByRole("menuitem", { name: "Edit Product" }).click()
+      // The product name is the write affordance: it opens the edit drawer.
+      await page.getByRole("button", { name, exact: true }).click()
 
       await page.getByLabel("Name").fill(updatedName)
       await page.getByRole("button", { name: "Save" }).click()
@@ -211,12 +212,13 @@ test.describe("Product table columns", () => {
 
 test("Barcode can be created and edited", async ({ page }) => {
   const sku = randomSku()
+  const name = randomProductName()
   const barcode = `779${Date.now().toString().slice(-10)}`
   const updatedBarcode = `778${Date.now().toString().slice(-10)}`
 
   await page.goto("/products")
   await page.getByRole("button", { name: "Add Product" }).click()
-  await page.getByLabel("Name").fill(randomProductName())
+  await page.getByLabel("Name").fill(name)
   await page.getByLabel("SKU").fill(sku)
   await page.getByLabel("Price").fill("10.00")
   await page.getByLabel("Barcode").fill(barcode)
@@ -224,16 +226,14 @@ test("Barcode can be created and edited", async ({ page }) => {
   await expect(page.getByText("Product created successfully")).toBeVisible()
   await expect(page.getByRole("dialog")).not.toBeVisible()
 
-  const productRow = page.getByRole("row").filter({ hasText: sku })
-  await productRow.getByRole("button").last().click()
-  await page.getByRole("menuitem", { name: "Edit Product" }).click()
+  const nameButton = page.getByRole("button", { name, exact: true })
+  await nameButton.click()
   await expect(page.getByLabel("Barcode")).toHaveValue(barcode)
   await page.getByLabel("Barcode").fill(updatedBarcode)
   await page.getByRole("button", { name: "Save" }).click()
   await expect(page.getByText("Product updated successfully")).toBeVisible()
 
-  await productRow.getByRole("button").last().click()
-  await page.getByRole("menuitem", { name: "Edit Product" }).click()
+  await nameButton.click()
   await expect(page.getByLabel("Barcode")).toHaveValue(updatedBarcode)
 })
 
@@ -241,13 +241,14 @@ test("Barcode is trimmed before the 64 character limit is checked", async ({
   page,
 }) => {
   const sku = randomSku()
+  const name = randomProductName()
   // 64 characters plus a trailing space: valid once trimmed, invalid if the
   // browser measures the raw value before trimming.
   const barcode = `${"b".repeat(64)} `
 
   await page.goto("/products")
   await page.getByRole("button", { name: "Add Product" }).click()
-  await page.getByLabel("Name").fill(randomProductName())
+  await page.getByLabel("Name").fill(name)
   await page.getByLabel("SKU").fill(sku)
   await page.getByLabel("Price").fill("10.00")
   await page.getByLabel("Barcode").fill(barcode)
@@ -259,8 +260,57 @@ test("Barcode is trimmed before the 64 character limit is checked", async ({
   await expect(page.getByText("Product created successfully")).toBeVisible()
   await expect(page.getByRole("dialog")).not.toBeVisible()
 
-  const productRow = page.getByRole("row").filter({ hasText: sku })
-  await productRow.getByRole("button").last().click()
-  await page.getByRole("menuitem", { name: "Edit Product" }).click()
+  await page.getByRole("button", { name, exact: true }).click()
   await expect(page.getByLabel("Barcode")).toHaveValue("b".repeat(64))
+})
+
+test("The product name opens the edit drawer and Cancel leaves it unchanged", async ({
+  page,
+}) => {
+  const sku = randomSku()
+  const name = randomProductName()
+
+  await page.goto("/products")
+  await page.getByRole("button", { name: "Add Product" }).click()
+  await page.getByLabel("Name").fill(name)
+  await page.getByLabel("SKU").fill(sku)
+  await page.getByLabel("Price").fill("10.00")
+  await page.getByRole("button", { name: "Save" }).click()
+  await expect(page.getByText("Product created successfully")).toBeVisible()
+
+  await page.getByRole("button", { name, exact: true }).click()
+  const drawer = page.getByRole("dialog", { name: "Edit product" })
+  await expect(drawer).toBeVisible()
+  // The drawer is the only place the catalog row can be edited from.
+  await expect(drawer.getByLabel("SKU")).toHaveValue(sku)
+
+  await drawer.getByLabel("Name").fill("Discarded name")
+  await page.getByRole("button", { name: "Cancel" }).click()
+
+  await expect(drawer).not.toBeVisible()
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible()
+  await expect(page.getByText("Discarded name")).toHaveCount(0)
+})
+
+test("is_active can be switched off from the edit drawer", async ({ page }) => {
+  const sku = randomSku()
+  const name = randomProductName()
+
+  await page.goto("/products")
+  await page.getByRole("button", { name: "Add Product" }).click()
+  await page.getByLabel("Name").fill(name)
+  await page.getByLabel("SKU").fill(sku)
+  await page.getByLabel("Price").fill("10.00")
+  await page.getByRole("button", { name: "Save" }).click()
+  await expect(page.getByText("Product created successfully")).toBeVisible()
+
+  const productRow = page.getByRole("row").filter({ hasText: sku })
+  await expect(productRow.getByText("Active")).toBeVisible()
+
+  await page.getByRole("button", { name, exact: true }).click()
+  await page.getByRole("checkbox", { name: "Active" }).uncheck()
+  await page.getByRole("button", { name: "Save" }).click()
+
+  await expect(page.getByText("Product updated successfully")).toBeVisible()
+  await expect(productRow.getByText("Inactive")).toBeVisible()
 })
