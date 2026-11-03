@@ -29,12 +29,18 @@ Deploy self-hosted de oxo para una sola máquina, alcanzable desde la LAN y desd
 | T5 | S2,S3,S4,S5,S6,S10,S13 | inline | reescribe `deployment-docker-compose.md` como guía LAN + Tailscale |
 | T6 | S5,S8,S13 | inline | actualiza `development.md` y `env.prod.example` |
 | T7 | S2-S13 | inline | verifica con `docker compose config` y levanta el stack real |
+| T8 | S5 | inline | renombra el archivo de entorno del deploy a `.env.deploy` |
 
 ## Evidence
 
 - Commit `253261b` — T1-T7: `compose.deploy.yml` reescrito, dev renombrado a `oxo-dev`, `compose.prod.yml` y el workflow de deploy eliminados, documentación y `env.prod.example` actualizados, 405 líneas cambiadas (145+/260-).
 - Verificación real: `build` OK; `prestart.sh` aplicó las 7 migraciones y creó el superusuario; `up -d` dejó `oxo-db-1` y `oxo-backend-1` en `healthy`; health-check, raíz, `/docs`, el bundle JS (329 357 bytes) y el login devolvieron 200 por `192.168.0.101:8000`, `100.127.160.19:8000` y `localhost:8000`; el bundle no lleva `baseURL` absoluto; el contenedor no recibió `SMTP_HOST=mailpit`, `POSTGRES_PASSWORD=changethis` ni `FASTAPI_ENV` del `.env` de desarrollo. Stack bajado y volumen de prueba eliminado.
 - Hallazgo durante la verificación: `FIRST_SUPERUSER=admin@oxo.local` no valida (sufijo reservado). El ejemplo del template tenía el mismo defecto; `env.prod.example` ahora usa `admin@example.com`.
+- Commit `deacf5e` — T8: `.env.prod` pasa a `.env.deploy` en `compose.deploy.yml`, `deployment-docker-compose.md`, `development.md` y el ejemplo (`env.deploy.example`), que antes se llamaba `env.deploy.example`.
+- **L4** (corrección del usuario): "ya lo cambie y tambien cambie el nombre del archivo a .env.deploy para no generar ambigüedad".
+- **L5** (hallazgo propio, corregido en T8): `.env.deploy` no estaba en `.gitignore` (solo estaba `.env.prod`) y tenía permisos `644`. Se agregó la regla, se puso `600` y se borró el `.env.prod` viejo.
+- **L6** (decisión del usuario): `FRONTEND_HOST` queda en la IP de LAN, `http://192.168.0.101:8000`, no la de Tailscale. Se verificó que `FRONTEND_HOST` se usa en tres lugares: link de reseteo (`utils.py:73`), link de cuenta nueva (`utils.py:99`) y `allow_origins` de CORS (`main.py:29`); en el deploy el tercero es inerte porque el frontend compilado llama a la API en el mismo origen.
+- **L7** (verificación con el `.env.deploy` real): el `POSTGRES_PASSWORD` del usuario tiene `%`, `&` y dos `@`, y el `DATABASE_URL` interpolado queda ambiguo. Se probó de punta a punta: pydantic re-codifica los `@` a `%40%40` al validar el `PostgresDsn` y el stack conecta bien. Riesgo latente, no fallo activo.
 
 ## Log
 
