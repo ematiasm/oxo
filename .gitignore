@@ -8,3 +8,6 @@ backend/app/frontend/
 /playwright/.cache/
 .env.prod.md
 .env.prod
+
+# Local design drafts (gentle-design canvas)
+design/
