@@ -13,7 +13,9 @@ test("Products page is accessible and shows correct title", async ({
   page,
 }) => {
   await page.goto("/products")
-  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Products", exact: true }),
+  ).toBeVisible()
   await expect(page.getByText("Manage the store catalog")).toBeVisible()
 })
 
@@ -174,7 +176,9 @@ test.describe("Non-superuser cannot write", () => {
 
     await page.goto("/products")
 
-    await expect(page.getByRole("heading", { name: "Products" })).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Products", exact: true }),
+    ).toBeVisible()
     await expect(page.getByRole("button", { name: "Add Product" })).toHaveCount(
       0,
     )
@@ -198,7 +202,9 @@ test.describe("Product table columns", () => {
   test("Hides the ID column and shows the requested columns", async ({
     page,
   }) => {
-    await expect(page.getByRole("heading", { name: "Products" })).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Products", exact: true }),
+    ).toBeVisible()
     await expect(page.getByRole("columnheader").first()).toBeVisible()
 
     const headers = await page
