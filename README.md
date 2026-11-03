@@ -16,7 +16,6 @@
   - 🤖 An automatically generated frontend client.
   - 🧪 [Playwright](https://playwright.dev) for end-to-end testing.
   - 🦇 Dark mode support.
-- ☁️ [FastAPI Cloud](https://fastapicloud.com) for deployment.
 - 🐋 [Docker Compose](https://www.docker.com) for local services and self-hosted deployment.
   - 📞 [Traefik](https://traefik.io) as a reverse proxy with automatic HTTPS.
 - 🔒 Secure password hashing by default.
@@ -68,8 +67,6 @@ Backend docs: [backend/README.md](./backend/README.md).
 Frontend docs: [frontend/README.md](./frontend/README.md).
 
 ## Deployment
-
-FastAPI Cloud deployment: [deployment.md](./deployment.md).
 
 Self-hosted deployment with Docker Compose: [deployment-docker-compose.md](./deployment-docker-compose.md).
 
